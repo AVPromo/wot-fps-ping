@@ -12,7 +12,7 @@ from gui.mods.pb_fps_ping.config import HIDE_GAME_PANEL
 from gui.mods.pb_fps_ping.flash_view import FlashView
 from gui.mods.pb_fps_ping.indicator import Indicator
 
-__version__ = '0.15.1'
+__version__ = '0.21.4'
 
 _logger = logging.getLogger('pb.fps_ping')
 

@@ -78,11 +78,9 @@ class Indicator(object):
                     self._fpsPoints.append(fps)
                 if ping is not None:
                     self._pingPoints.append(ping)
-            self._runView(self._view.update, fps, ping)
-            if self._view.extended:
-                self._runView(self._view.updateLow, low, self._frameTimer.desyncs)
-                if newPoint:
-                    self._scheduleGraphs()
+            self._runView(self._view.update, fps, low, ping, self._frameTimer.desyncs)
+            if self._view.extended and newPoint:
+                self._scheduleGraphs()
             if self._updates % LOG_EVERY == 0:
                 _logger.info('fps %s | 1%% low %s | desyncs %d | ping %s',
                              _fmt(fps), _fmt(low), self._frameTimer.desyncs, _fmt(ping))
@@ -99,7 +97,6 @@ class Indicator(object):
             return
         self._runView(self._view.setExtended, extended)
         if extended:
-            self._runView(self._view.updateLow, self._frameTimer.low.fps(), self._frameTimer.desyncs)
             self._scheduleGraphs()
 
     def _scheduleGraphs(self):
