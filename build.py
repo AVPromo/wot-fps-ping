@@ -24,7 +24,9 @@ GAME_DIR = os.environ.get('WOT_DIR', r'D:\programs\World_of_Tanks_EU')
 GAME_VERSION = '2.4.0.2'
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-SOURCE = os.path.join(ROOT, 'src', 'gui', 'mods', MOD_SCRIPT + '.py')
+SOURCE_DIR = os.path.join(ROOT, 'src', 'gui', 'mods')
+# The entry module the game loads; it holds __version__.
+SOURCE = os.path.join(SOURCE_DIR, MOD_SCRIPT + '.py')
 BUILD_DIR = os.path.join(ROOT, 'build')
 PACKAGE_SCRIPT_DIR = 'res/scripts/client/gui/mods/'
 
@@ -45,23 +47,41 @@ def read_version():
     return match.group(1)
 
 
-def compile_script(tmp_dir):
-    pyc = os.path.join(tmp_dir, MOD_SCRIPT + '.pyc')
-    # dfile keeps the local source path out of tracebacks in game.log.
-    py_compile.compile(SOURCE, cfile=pyc, dfile='gui/mods/' + MOD_SCRIPT + '.py', doraise=True)
-    with open(pyc, 'rb') as f:
-        return f.read()
+def source_files():
+    # Every .py under src/gui/mods as a path relative to it with '/' separators, sorted.
+    found = []
+    for directory, _, names in os.walk(SOURCE_DIR):
+        for name in names:
+            if name.endswith('.py'):
+                found.append(os.path.relpath(os.path.join(directory, name), SOURCE_DIR).replace(os.sep, '/'))
+    return sorted(found)
 
 
-def write_package(path, version, pyc_data):
+def compile_scripts(tmp_dir):
+    # {relative .pyc path: bytecode}.
+    compiled = {}
+    for relative in source_files():
+        pyc = os.path.join(tmp_dir, relative.replace('/', '_') + 'c')
+        # dfile keeps the local source path out of tracebacks in game.log.
+        py_compile.compile(os.path.join(SOURCE_DIR, relative), cfile=pyc, dfile='gui/mods/' + relative, doraise=True)
+        with open(pyc, 'rb') as f:
+            compiled[relative + 'c'] = f.read()
+    return compiled
+
+
+def write_package(path, version, compiled):
     meta = META_XML.format(id=MOD_ID, version=version, name=escape(MOD_NAME), description=escape(MOD_DESCRIPTION))
     # The game expects an uncompressed zip with explicit directory entries.
+    directories = set()
+    for relative in compiled:
+        parts = (PACKAGE_SCRIPT_DIR + relative).split('/')[:-1]
+        directories.update('/'.join(parts[:i]) + '/' for i in range(1, len(parts) + 1))
     with zipfile.ZipFile(path, 'w', zipfile.ZIP_STORED) as z:
         z.writestr('meta.xml', meta)
-        parts = PACKAGE_SCRIPT_DIR.rstrip('/').split('/')
-        for i in range(1, len(parts) + 1):
-            z.writestr('/'.join(parts[:i]) + '/', '')
-        z.writestr(PACKAGE_SCRIPT_DIR + MOD_SCRIPT + '.pyc', pyc_data)
+        for directory in sorted(directories):
+            z.writestr(directory, '')
+        for relative in sorted(compiled):
+            z.writestr(PACKAGE_SCRIPT_DIR + relative, compiled[relative])
 
 
 def install(package):
@@ -82,14 +102,14 @@ def main():
     version = read_version()
     tmp_dir = tempfile.mkdtemp()
     try:
-        pyc_data = compile_script(tmp_dir)
+        compiled = compile_scripts(tmp_dir)
     finally:
         shutil.rmtree(tmp_dir)
 
     if not os.path.isdir(BUILD_DIR):
         os.makedirs(BUILD_DIR)
     package = os.path.join(BUILD_DIR, '%s_%s.wotmod' % (MOD_ID, version))
-    write_package(package, version, pyc_data)
+    write_package(package, version, compiled)
     print('build   ' + package)
 
     if '--install' in sys.argv[1:]:
