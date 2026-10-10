@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Battle loop: measures frames, updates the view and writes FPS to game.log."""
+"""Battle loop: measures frames, reads ping, updates the view and writes both to game.log."""
 import logging
 from collections import deque
 
@@ -7,20 +7,27 @@ import BigWorld
 from gui.shared import EVENT_BUS_SCOPE, g_eventBus
 from gui.shared.events import GameEvent
 
-from gui.mods.pb_fps_ping.config import GRAPH_EVERY, GRAPH_POINTS, LOG_EVERY, UPDATE_INTERVAL
+from gui.mods.pb_fps_ping.config import GRAPH_EVERY, GRAPH_POINTS, LOG_EVERY, PING_NONE, UPDATE_INTERVAL
 from gui.mods.pb_fps_ping.frame_timer import FrameTimer
 
 _logger = logging.getLogger('pb.fps_ping')
 
 
-def _fmtFPS(fps):
-    return '%.1f' % fps if fps is not None else '-'
+def _fmt(value):
+    return '%.1f' % value if value is not None else '-'
+
+
+def _ping():
+    # Ping in ms as the game's own panel shows it; None while there is none yet.
+    ping = BigWorld.statPing()
+    return ping if ping != PING_NONE else None
 
 
 class Indicator(object):
-    # Runs from the start to the end of a battle. Texts every UPDATE_INTERVAL; the graph gets a point and is redrawn
-    # every GRAPH_EVERY updates, in the frame after the texts, so one frame does not get both. The graph and 1% low are shown while the game's extended info key is held
-    # (Alt by default, the same key that shows extra info on vehicle markers).
+    # Runs from the start to the end of a battle. Texts every UPDATE_INTERVAL; the graphs get a point and are redrawn
+    # every GRAPH_EVERY updates, in the frame after the texts, so one frame does not get both. The graphs and 1% low
+    # are shown while the game's extended info key is held (Alt by default, the same key that shows extra info on
+    # vehicle markers).
 
     def __init__(self, view):
         self._view = view
@@ -29,15 +36,17 @@ class Indicator(object):
         self._graphCallbackID = None
         self._updates = 0
         self._frameTimer = FrameTimer()
-        # FPS shown at every update, newest last: the graph points.
-        self._points = deque(maxlen=GRAPH_POINTS)
+        # FPS and ping shown at every GRAPH_EVERY update, newest last: the graph points.
+        self._fpsPoints = deque(maxlen=GRAPH_POINTS)
+        self._pingPoints = deque(maxlen=GRAPH_POINTS)
 
     def start(self):
         if self._running:
             return
         self._running = True
         self._updates = 0
-        self._points.clear()
+        self._fpsPoints.clear()
+        self._pingPoints.clear()
         self._view.setExtended(False)
         g_eventBus.addListener(GameEvent.SHOW_EXTENDED_INFO, self._onExtendedInfo, scope=EVENT_BUS_SCOPE.BATTLE)
         self._frameTimer.start()
@@ -62,16 +71,21 @@ class Indicator(object):
         try:
             fps = self._frameTimer.fps()
             low = self._frameTimer.low.fps()
-            newPoint = self._updates % GRAPH_EVERY == 0 and fps is not None
+            ping = _ping()
+            newPoint = self._updates % GRAPH_EVERY == 0
             if newPoint:
-                self._points.append(fps)
-            self._runView(self._view.updateFps, fps)
+                if fps is not None:
+                    self._fpsPoints.append(fps)
+                if ping is not None:
+                    self._pingPoints.append(ping)
+            self._runView(self._view.update, fps, ping)
             if self._view.extended:
-                self._runView(self._view.updateLow, low)
+                self._runView(self._view.updateLow, low, self._frameTimer.desyncs)
                 if newPoint:
-                    self._scheduleGraph()
+                    self._scheduleGraphs()
             if self._updates % LOG_EVERY == 0:
-                _logger.info('fps %s | 1%% low %s', _fmtFPS(fps), _fmtFPS(low))
+                _logger.info('fps %s | 1%% low %s | desyncs %d | ping %s',
+                             _fmt(fps), _fmt(low), self._frameTimer.desyncs, _fmt(ping))
             self._updates += 1
         except Exception:
             _logger.exception('update failed, indicator stopped')
@@ -85,16 +99,16 @@ class Indicator(object):
             return
         self._runView(self._view.setExtended, extended)
         if extended:
-            self._runView(self._view.updateLow, self._frameTimer.low.fps())
-            self._scheduleGraph()
+            self._runView(self._view.updateLow, self._frameTimer.low.fps(), self._frameTimer.desyncs)
+            self._scheduleGraphs()
 
-    def _scheduleGraph(self):
+    def _scheduleGraphs(self):
         if self._view.attached and self._graphCallbackID is None:
-            self._graphCallbackID = BigWorld.callback(0.0, self._updateGraph)
+            self._graphCallbackID = BigWorld.callback(0.0, self._updateGraphs)
 
-    def _updateGraph(self):
+    def _updateGraphs(self):
         self._graphCallbackID = None
-        self._runView(self._view.updateGraph, self._points)
+        self._runView(self._view.updateGraphs, self._fpsPoints, self._pingPoints)
 
     def _runView(self, update, *args):
         try:

@@ -23,6 +23,10 @@ class FrameTimer(object):
         # (clock time, BigWorld.time()) at the start, until the clock is checked.
         self._clockCheck = None
         self._lastTime = None
+        # The game's frame number at the previous call, and how many calls since the start were not exactly one
+        # frame after the previous one (twice in one frame, or frames skipped). Measured times are wrong then.
+        self._lastFrame = None
+        self.desyncs = 0
         # (end time, frame time) in seconds, and the sum of their frame times.
         self._frames = deque()
         self._framesTime = 0.0
@@ -31,6 +35,8 @@ class FrameTimer(object):
     def start(self):
         self.stop()
         self._clockCheck = (self._clock(), BigWorld.time())
+        self._lastFrame = None
+        self.desyncs = 0
         self._resetFrames()
         self._tick()
 
@@ -53,6 +59,7 @@ class FrameTimer(object):
     def _tick(self):
         self._callbackID = None
         try:
+            self._checkStep(BigWorld.wg_getFrameTimestamp())
             now = self._clock()
             if self._lastTime is not None:
                 self._addFrame(now, now - self._lastTime)
@@ -63,6 +70,14 @@ class FrameTimer(object):
             _logger.exception('frame timer failed, stopped')
             return
         self._callbackID = BigWorld.callback(0.0, self._tick)
+
+    def _checkStep(self, frame):
+        if self._lastFrame is not None and frame - self._lastFrame != 1:
+            self.desyncs += 1
+            if self.desyncs == 1:
+                _logger.warning('frame callback out of step with the game frames: frame number %d after %d',
+                                frame, self._lastFrame)
+        self._lastFrame = frame
 
     def _addFrame(self, now, frameTime):
         self._frames.append((now, frameTime))
