@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
-"""FPS & Ping by PB: battle FPS and ping indicator for World of Tanks.
+"""FPS & Ping by Sagtary: battle FPS and ping indicator for World of Tanks.
 
-Entry point loaded by the game; the code is in the gui.mods.pb_fps_ping package.
+Entry point loaded by the game; the code is in the gui.mods.sagtary_fps_ping package.
 """
 import logging
 
 from gui.Scaleform.daapi.view.battle.shared.debug_panel import DebugPanel
 from PlayerEvents import g_playerEvents
 
-from gui.mods.pb_fps_ping.config import HIDE_GAME_PANEL
-from gui.mods.pb_fps_ping.flash_view import FlashView
-from gui.mods.pb_fps_ping.indicator import Indicator
+from gui.mods.sagtary_fps_ping.config import HIDE_GAME_PANEL
+from gui.mods.sagtary_fps_ping.flash_view import FlashView
+from gui.mods.sagtary_fps_ping.indicator import Indicator
 
 __version__ = '0.26.0'
 
-_logger = logging.getLogger('pb.fps_ping')
+_logger = logging.getLogger('sagtary.fps_ping')
 
 _view = FlashView()
 _indicator = Indicator(_view)

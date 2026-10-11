@@ -58,7 +58,8 @@ PING_NONE = 999.0
 # in px), so a size 4 space is 2 px.
 NUMBER_HTML = u'<font face="$FieldFont" size="15" color="#FFFFFF">%s</font>'
 UNIT_HTML = u'<font face="$FieldFont" size="4"> </font><font face="$FieldFont" size="12" color="#FFFFFF">%s</font>'
-SEPARATOR_HTML = (u'<font face="$FieldFont" size="10"> </font><font face="$FieldFont" size="12" color="#FFFFFF">/</font>'
+SEPARATOR_HTML = (u'<font face="$FieldFont" size="10"> </font>'
+                  u'<font face="$FieldFont" size="12" color="#FFFFFF">/</font>'
                   u'<font face="$FieldFont" size="10"> </font>')
 # Text widths: Python cannot read the width of a shown text field reliably, so the width of each digit, helper text
 # and separator is measured once when the view is created, and these are used if that fails: digit, then the texts.

@@ -8,10 +8,10 @@ import BigWorld
 from gui.shared import EVENT_BUS_SCOPE, g_eventBus
 from gui.shared.events import GameEvent
 
-from gui.mods.pb_fps_ping.config import GRAPH_EVERY, GRAPH_POINTS, LOG_EVERY, PING_NONE, UPDATE_INTERVAL
-from gui.mods.pb_fps_ping.frame_timer import FrameTimer
+from gui.mods.sagtary_fps_ping.config import GRAPH_EVERY, GRAPH_POINTS, LOG_EVERY, PING_NONE, UPDATE_INTERVAL
+from gui.mods.sagtary_fps_ping.frame_timer import FrameTimer
 
-_logger = logging.getLogger('pb.fps_ping')
+_logger = logging.getLogger('sagtary.fps_ping')
 
 
 def _fmt(value):

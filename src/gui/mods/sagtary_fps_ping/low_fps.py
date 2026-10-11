@@ -2,7 +2,7 @@
 """1% low FPS over a sliding window."""
 from collections import deque
 
-from gui.mods.pb_fps_ping.config import LOW_BIN, LOW_SHARE, LOW_WINDOW
+from gui.mods.sagtary_fps_ping.config import LOW_BIN, LOW_SHARE, LOW_WINDOW
 
 
 class LowFPS(object):

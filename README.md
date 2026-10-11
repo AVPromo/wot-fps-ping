@@ -1,4 +1,4 @@
-# FPS & Ping by PB
+# FPS & Ping by Sagtary
 
 A World of Tanks mod that shows FPS, ping and lag in battle and in replays, next to the game's own FPS/ping panel.
 
@@ -29,7 +29,7 @@ Each graph has one point per second for the last 30 seconds, newest on the right
 
 ## Install
 
-Copy `pavel-bolhovitin.fps_ping_<version>.wotmod` into the game's `mods\<game version>\` folder.
+Copy `sagtary.fps_ping_<version>.wotmod` into the game's `mods\<game version>\` folder.
 
 ## Build
 
@@ -41,8 +41,3 @@ C:\Python27\python.exe build.py --install  # also copy it into the game's mods f
 ```
 
 The game folder is `D:\programs\World_of_Tanks_EU` unless the `WOT_DIR` environment variable says otherwise.
-
-## Docs
-
-- [docs/raw-api-values.md](docs/raw-api-values.md): the raw FPS, ping and network values of the game's API, what
-  each number means, and how the game's own FPS/ping panel uses them.

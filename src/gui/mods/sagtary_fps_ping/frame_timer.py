@@ -6,11 +6,11 @@ from collections import deque
 
 import BigWorld
 
-from gui.mods.pb_fps_ping.config import CLOCK_CHECK_TIME, CLOCK_MIN_RATIO, FPS_WINDOW
-from gui.mods.pb_fps_ping.lag_probe import LagProbe
-from gui.mods.pb_fps_ping.low_fps import LowFPS
+from gui.mods.sagtary_fps_ping.config import CLOCK_CHECK_TIME, CLOCK_MIN_RATIO, FPS_WINDOW
+from gui.mods.sagtary_fps_ping.lag_probe import LagProbe
+from gui.mods.sagtary_fps_ping.low_fps import LowFPS
 
-_logger = logging.getLogger('pb.fps_ping')
+_logger = logging.getLogger('sagtary.fps_ping')
 
 
 class FrameTimer(object):

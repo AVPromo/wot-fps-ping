@@ -3,14 +3,14 @@
 import logging
 import math
 
-from gui.mods.pb_fps_ping.config import (DESYNC_HTML, FPS_GRAPH_COLOUR, GAP_GRAPH, GAP_LAMP, GAP_PART, GAP_TICKS,
+from gui.mods.sagtary_fps_ping.config import (DESYNC_HTML, FPS_GRAPH_COLOUR, GAP_GRAPH, GAP_LAMP, GAP_PART, GAP_TICKS,
                                          GAP_TICKS_LAMP, GRAPH_DOT, GRAPH_FILL_ALPHA, GRAPH_HEADROOM, GRAPH_LINE,
                                          GRAPH_OUTLINE, GRAPH_POINTS, GRAPH_SIZE, GRAPH_Y, LAG_COLOURS, LAMP_OUTLINE,
                                          LAMP_RADIUS, NUMBER_HTML, PING_ZONES, SEPARATOR_HTML, TEXT_SHADOW,
                                          TEXT_WIDTHS, TICK_HEIGHT, TICK_OUTLINE, TICK_WIDTH, UNIT_HTML,
                                          VIEW_POSITION)
 
-_logger = logging.getLogger('pb.fps_ping')
+_logger = logging.getLogger('sagtary.fps_ping')
 
 # Flash class names of Vector.<int> and Vector.<Number> as the game's class factory finds them.
 _VECTOR_INT = '__AS3__.vec::Vector$int'

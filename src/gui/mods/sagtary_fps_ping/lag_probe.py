@@ -5,11 +5,11 @@ import os
 
 import BigWorld
 
-from gui.mods.pb_fps_ping.config import LAG_PROBE_SECONDS
+from gui.mods.sagtary_fps_ping.config import LAG_PROBE_SECONDS
 
-_logger = logging.getLogger('pb.fps_ping')
+_logger = logging.getLogger('sagtary.fps_ping')
 
-PATH = os.path.join(os.environ.get('TEMP') or '.', 'pb_fps_ping_lag.csv')
+PATH = os.path.join(os.environ.get('TEMP') or '.', 'sagtary_fps_ping_lag.csv')
 # Rows are written to disk this often, so a crash or a kick after a disconnect does not lose them.
 _FLUSH_EVERY = 300
 
