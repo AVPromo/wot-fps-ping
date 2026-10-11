@@ -12,7 +12,7 @@ from gui.mods.sagtary_fps_ping.config import HIDE_GAME_PANEL
 from gui.mods.sagtary_fps_ping.flash_view import FlashView
 from gui.mods.sagtary_fps_ping.indicator import Indicator
 
-__version__ = '0.26.0'
+__version__ = '1.0.0'
 
 _logger = logging.getLogger('sagtary.fps_ping')
 
@@ -23,7 +23,7 @@ _originalDispose = DebugPanel._dispose
 
 
 def _populate(self):
-    # The game's own FPS/ping panel is created with the battle page; the view goes next to it.
+    # The game's own FPS/ping panel is created with the battle page; the view takes its place.
     _originalPopulate(self)
     if HIDE_GAME_PANEL:
         try:
@@ -59,4 +59,3 @@ def fini():
     g_playerEvents.onAvatarBecomeNonPlayer -= _indicator.stop
     _indicator.stop()
     _view.detach()
-    _logger.info('fini')

@@ -54,9 +54,9 @@ def _createShadow(factory):
 
 
 def _createVectors(factory):
-    # Flash vectors for Graphics.drawPath: fill commands, line commands and the points; None if unavailable.
+    # Flash vectors for Graphics.drawPath: the commands and the points; None if unavailable.
     try:
-        vectors = (factory.getObject(_VECTOR_INT), factory.getObject(_VECTOR_INT), factory.getObject(_VECTOR_NUMBER))
+        vectors = (factory.getObject(_VECTOR_INT), factory.getObject(_VECTOR_NUMBER))
     except Exception:
         _logger.exception('cannot create Flash vectors for drawPath')
         return None
@@ -91,8 +91,6 @@ class _TextWidths(object):
         if (all(3.0 <= width <= 20.0 for width in digits.values()) and all(width > 0.0 for width in units.values())
                 and len(set(units.values())) > 1):
             self._digits, self._units = digits, units
-            _logger.info('text widths: digits %s, %s', ' '.join('%.1f' % digits[char] for char in _DIGITS),
-                         ', '.join('%s %.1f' % (unit, width) for unit, width in sorted(units.items())))
         else:
             _logger.warning('text widths look wrong (digits %s, %s), using the defaults', digits, units)
 
@@ -111,7 +109,7 @@ class _TextWidths(object):
 
 
 class _Value(object):
-    # A text field with one or more values, "367fps / 290 1% / 255replay": each value a number with small helper
+    # A text field with one or more values, "367fps / 290low / 255replay": each value a number with small helper
     # text after it, values split by a "/". Knows the width of its text from _TextWidths; the text is set only when
     # it changes.
 
@@ -152,10 +150,6 @@ class _Graph(object):
         self._colour = colour
         self._zones = zones
         self._paths = _createVectors(factory)
-
-    @property
-    def drawPath(self):
-        return self._paths is not None
 
     def draw(self, points):
         graphics = self.shape.graphics
@@ -212,7 +206,7 @@ class _Graph(object):
 
     def _drawShapesPath(self, graphics, shapes):
         # All shapes in one call: Graphics.drawPath takes all points at once (command 1 = moveTo, 2 = lineTo).
-        commands, _, data = self._paths
+        commands, data = self._paths
         _refill(commands, [command for shape in shapes for command in [1] + [2] * (len(shape) - 1)])
         _refill(data, [value for shape in shapes for point in shape for value in point])
         graphics.drawPath(commands, data)
@@ -260,7 +254,7 @@ class _LagTicks(object):
         if self._paths is not None:
             try:
                 # Each rectangle: moveTo and four lineTo.
-                commands, _, data = self._paths
+                commands, data = self._paths
                 _refill(commands, [1, 2, 2, 2, 2] * len(rects))
                 _refill(data, [value for x, y, w, h in rects
                                for value in (x, y, x + w, y, x + w, y + h, x, y + h, x, y)])
@@ -303,9 +297,10 @@ class _Lamp(object):
 
 
 class FlashView(object):
-    # Flash objects on the battle page, next to the game's own FPS/ping panel, in one line.
+    # Flash objects on the battle page, in place of the game's own FPS/ping panel, in one line.
     # Normal mode: "372fps    74ms ●". Extended mode (while Alt is held): each part with its graph before it, 1% low
-    # after the fps, the lag ticks before the lamp: "<graph> 372fps / 261 1%    <graph> 74ms <ticks> ●". In a replay the fps part also shows the FPS recorded in the replay: "367fps / 255replay".
+    # after the fps, the lag ticks before the lamp: "<graph> 372fps / 261low    <graph> 74ms <ticks> ●". In a replay
+    # the fps part also shows the FPS recorded in the replay: "367fps / 255replay".
     # The ping part and the lamp are hidden while there is no ping, everything while there is no FPS.
     # Python cannot construct Flash objects itself; the game's class factory (App.utils.classFactory) does it.
 
@@ -363,8 +358,6 @@ class FlashView(object):
         flashObject.parent.addChild(container)
         self._container = container
         self._visible = (False,) * len(self._children)
-        _logger.info('view created, drawPath vectors %s',
-                     'ready' if self._fpsGraph.drawPath and self._pingGraph.drawPath else 'unavailable')
 
     def detach(self):
         container = self._container
@@ -406,7 +399,7 @@ class FlashView(object):
         if hasFps:
             values = [(self._fps, u'fps')]
             if extended and self._low is not None:
-                values.append((self._low, u'1%'))
+                values.append((self._low, u'low'))
             if self._replayFps is not None:
                 values.append((self._replayFps, u'replay'))
             self._fpsText.set(values)

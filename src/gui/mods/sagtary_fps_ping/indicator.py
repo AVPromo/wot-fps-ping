@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Battle loop: measures frames, reads ping, updates the view and writes both to game.log."""
+"""Battle loop: measures frames, reads ping and lag, updates the view."""
 import logging
 from collections import deque
 
@@ -8,14 +8,10 @@ import BigWorld
 from gui.shared import EVENT_BUS_SCOPE, g_eventBus
 from gui.shared.events import GameEvent
 
-from gui.mods.sagtary_fps_ping.config import GRAPH_EVERY, GRAPH_POINTS, LOG_EVERY, PING_NONE, UPDATE_INTERVAL
+from gui.mods.sagtary_fps_ping.config import GRAPH_EVERY, GRAPH_POINTS, PING_NONE, UPDATE_INTERVAL
 from gui.mods.sagtary_fps_ping.frame_timer import FrameTimer
 
 _logger = logging.getLogger('sagtary.fps_ping')
-
-
-def _fmt(value):
-    return '%.1f' % value if value is not None else '-'
 
 
 def _replay():
@@ -68,7 +64,6 @@ class Indicator(object):
         self._view.setExtended(False)
         g_eventBus.addListener(GameEvent.SHOW_EXTENDED_INFO, self._onExtendedInfo, scope=EVENT_BUS_SCOPE.BATTLE)
         self._frameTimer.start()
-        _logger.info('indicator started')
         self._update()
 
     def stop(self):
@@ -82,7 +77,6 @@ class Indicator(object):
             self._running = False
             self._runView(self._view.hide)
             g_eventBus.removeListener(GameEvent.SHOW_EXTENDED_INFO, self._onExtendedInfo, scope=EVENT_BUS_SCOPE.BATTLE)
-            _logger.info('indicator stopped')
 
     def _update(self):
         self._callbackID = None
@@ -108,8 +102,6 @@ class Indicator(object):
             self._runView(self._view.update, fps, low, ping, lag, replayFps)
             if self._view.extended and newPoint:
                 self._scheduleGraphs()
-            if self._updates % LOG_EVERY == 0:
-                _logger.info('fps %s | 1%% low %s | ping %s', _fmt(fps), _fmt(low), _fmt(ping))
             self._updates += 1
         except Exception:
             _logger.exception('update failed, indicator stopped')

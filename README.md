@@ -27,10 +27,10 @@ FPS history for the last 30 seconds, newest on the right. Alt only.
 
 #### 1% low
 
-FPS of the slowest moments. Alt only. Example: `237 1%`.
+FPS of the slowest moments. Alt only. Example: `237low`.
 
 - The FPS of the slowest 1% of the time over the last 30 seconds.
-- Shows stutters that the average FPS hides: 379 fps with 237 1% means short drops to about 237.
+- Shows stutters that the average FPS hides: 379fps with 237low means short drops to about 237.
 
 #### Replay FPS
 

@@ -7,7 +7,6 @@ from collections import deque
 import BigWorld
 
 from gui.mods.sagtary_fps_ping.config import CLOCK_CHECK_TIME, CLOCK_MIN_RATIO, FPS_WINDOW
-from gui.mods.sagtary_fps_ping.lag_probe import LagProbe
 from gui.mods.sagtary_fps_ping.low_fps import LowFPS
 
 _logger = logging.getLogger('sagtary.fps_ping')
@@ -28,17 +27,14 @@ class FrameTimer(object):
         self._frames = deque()
         self._framesTime = 0.0
         self.low = LowFPS()
-        self._lagProbe = LagProbe()
 
     def start(self):
         self.stop()
         self._clockCheck = (self._clock(), BigWorld.time())
         self._resetFrames()
-        self._lagProbe.start(self._clock())
         self._tick()
 
     def stop(self):
-        self._lagProbe.stop()
         if self._callbackID is not None:
             BigWorld.cancelCallback(self._callbackID)
             self._callbackID = None
@@ -58,7 +54,6 @@ class FrameTimer(object):
         self._callbackID = None
         try:
             now = self._clock()
-            self._lagProbe.add(now, BigWorld.wg_getFrameTimestamp())
             if self._lastTime is not None:
                 self._addFrame(now, now - self._lastTime)
             self._lastTime = now
@@ -85,7 +80,6 @@ class FrameTimer(object):
         self._clockCheck = None
         ratio = (now - clockStart) / engineElapsed
         if ratio >= CLOCK_MIN_RATIO:
-            _logger.info('clock %s ok, ratio to BigWorld.time() %.3f', self._clockName, ratio)
             return
         _logger.warning('clock %s runs at %.3f of BigWorld.time(), using BigWorld.timeExact()', self._clockName, ratio)
         self._clock = BigWorld.timeExact

@@ -5,11 +5,6 @@
 UPDATE_INTERVAL = 0.2
 # FPS is counted over the frames of the last FPS_WINDOW seconds.
 FPS_WINDOW = 1.0
-# FPS, 1% low and ping go to game.log every N screen updates (once per second).
-LOG_EVERY = 5
-# Temporary: for this many seconds from the start of each battle, write statLagDetected() and the server timing of
-# every frame to a CSV in the system temp folder (lag_probe.py); 0 turns it off.
-LAG_PROBE_SECONDS = 600
 # The game's own FPS/ping panel is hidden; the view takes its place.
 HIDE_GAME_PANEL = True
 
@@ -35,7 +30,7 @@ GRAPH_POINTS = int(round(GRAPH_SECONDS / GRAPH_INTERVAL))
 VIEW_POSITION = (9, 2)
 # Normal mode: one line, "372fps    74ms ●"; in a replay "367fps / 255replay    45ms ●" (the measured FPS, then the
 # one recorded in the replay). While the extended info key (Alt) is held, also one line:
-# "<graph> 372fps / 261 1%    <graph> 74ms <lag ticks> ●"; in a replay "<graph> 367fps / 290 1% / 255replay ...".
+# "<graph> 372fps / 261low    <graph> 74ms <lag ticks> ●"; in a replay "<graph> 367fps / 290low / 255replay ...".
 # Gaps: between a graph and its number, between the fps and the ping parts, between the ping text and the lamp,
 # between the ping text and the lag ticks, between the lag ticks and the lamp.
 GAP_GRAPH = 7
@@ -53,7 +48,7 @@ GRAPH_HEADROOM = 1.1
 PING_NONE = 999.0
 
 # Look: the game's own panel font, all text pure white like the panel's label picture. Numbers 15 px, the helper
-# text after a number ("fps", "1%", "replay", "ms") 12 px on the same baseline, 2 px after it; the values of one
+# text after a number ("fps", "low", "replay", "ms") 12 px on the same baseline, 2 px after it; the values of one
 # part are split by a 12 px "/" with 5 px on both sides. The gaps are spaces of a smaller font size (half the size
 # in px), so a size 4 space is 2 px.
 NUMBER_HTML = u'<font face="$FieldFont" size="15" color="#FFFFFF">%s</font>'
@@ -63,7 +58,7 @@ SEPARATOR_HTML = (u'<font face="$FieldFont" size="10"> </font>'
                   u'<font face="$FieldFont" size="10"> </font>')
 # Text widths: Python cannot read the width of a shown text field reliably, so the width of each digit, helper text
 # and separator is measured once when the view is created, and these are used if that fails: digit, then the texts.
-TEXT_WIDTHS = (8.0, {u'fps': 18.0, u'1%': 17.0, u'replay': 36.0, u'ms': 17.0, u'/': 14.0})
+TEXT_WIDTHS = (8.0, {u'fps': 18.0, u'low': 20.0, u'replay': 36.0, u'ms': 17.0, u'/': 14.0})
 # Text shadow, a DropShadowFilter like the game's own panel text has (read from the game in 2.4), but a little
 # darker: strength 0.8 instead of 0.6. Distance, angle, colour, alpha, blur, strength, quality.
 TEXT_SHADOW = (1.0, 90.0, 0x000000, 1.0, 4.0, 0.8, 2)
