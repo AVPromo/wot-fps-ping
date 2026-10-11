@@ -7,6 +7,7 @@ from collections import deque
 import BigWorld
 
 from gui.mods.pb_fps_ping.config import CLOCK_CHECK_TIME, CLOCK_MIN_RATIO, FPS_WINDOW
+from gui.mods.pb_fps_ping.lag_probe import LagProbe
 from gui.mods.pb_fps_ping.low_fps import LowFPS
 
 _logger = logging.getLogger('pb.fps_ping')
@@ -31,6 +32,7 @@ class FrameTimer(object):
         self._frames = deque()
         self._framesTime = 0.0
         self.low = LowFPS()
+        self._lagProbe = LagProbe()
 
     def start(self):
         self.stop()
@@ -38,9 +40,11 @@ class FrameTimer(object):
         self._lastFrame = None
         self.desyncs = 0
         self._resetFrames()
+        self._lagProbe.start(self._clock())
         self._tick()
 
     def stop(self):
+        self._lagProbe.stop()
         if self._callbackID is not None:
             BigWorld.cancelCallback(self._callbackID)
             self._callbackID = None
@@ -59,8 +63,10 @@ class FrameTimer(object):
     def _tick(self):
         self._callbackID = None
         try:
-            self._checkStep(BigWorld.wg_getFrameTimestamp())
+            frame = BigWorld.wg_getFrameTimestamp()
+            self._checkStep(frame)
             now = self._clock()
+            self._lagProbe.add(now, frame)
             if self._lastTime is not None:
                 self._addFrame(now, now - self._lastTime)
             self._lastTime = now

@@ -1,21 +1,27 @@
 # -*- coding: utf-8 -*-
-"""The texts and the graphs, drawn with Flash (Scaleform) objects of the battle page."""
+"""The texts, the graphs and the lag lamp, drawn with Flash (Scaleform) objects of the battle page."""
 import logging
+import math
 
-from gui.mods.pb_fps_ping.config import (ALT_FPS, ALT_PING, ALT_PING_X, DESYNC_HTML, FPS_LABEL_HTML, GRAPH_HEADROOM,
-                                         GRAPH_LOOK, GRAPH_OUTLINE, GRAPH_POINTS, GRAPH_SIZE, GRAPH_Y,
-                                         LINE_FPS_NUMBER_X, LINE_PING_NUMBER_X, LINE_PING_X, LOW_HTML, MS_HTML,
-                                         NUMBER_HTML, PING_LABEL_HTML, TEXT_SHADOW, VIEW_POSITION)
+from gui.mods.pb_fps_ping.config import (DESYNC_HTML, FPS_GRAPH_COLOUR, GAP_GRAPH, GAP_LAMP, GAP_PART, GAP_TICKS,
+                                         GAP_TICKS_LAMP, GRAPH_DOT, GRAPH_FILL_ALPHA, GRAPH_HEADROOM, GRAPH_LINE,
+                                         GRAPH_OUTLINE, GRAPH_POINTS, GRAPH_SIZE, GRAPH_Y, LAG_COLOURS, LAMP_OUTLINE,
+                                         LAMP_RADIUS, NUMBER_HTML, PING_ZONES, SEPARATOR_HTML, TEXT_SHADOW,
+                                         TEXT_WIDTHS, TICK_HEIGHT, TICK_OUTLINE, TICK_WIDTH, UNIT_HTML,
+                                         VIEW_POSITION)
 
 _logger = logging.getLogger('pb.fps_ping')
 
 # Flash class names of Vector.<int> and Vector.<Number> as the game's class factory finds them.
 _VECTOR_INT = '__AS3__.vec::Vector$int'
 _VECTOR_NUMBER = '__AS3__.vec::Vector$double'
+# The empty space a Flash text field keeps around its text.
+_GUTTER = 2
+_DIGITS = u'0123456789'
 
 
 def _fmtInt(value):
-    return '%.0f' % value if value is not None else '-'
+    return u'%.0f' % value if value is not None else u'-'
 
 
 def _refill(vector, values):
@@ -24,15 +30,12 @@ def _refill(vector, values):
     vector.push(*values)
 
 
-def _createText(factory, filters, html=None, x=0):
+def _createText(factory, filters):
     text = factory.getObject('flash.text.TextField')
     text.selectable = False
     text.autoSize = 'left'
-    text.x = x
     if filters is not None:
         text.filters = filters
-    if html is not None:
-        text.htmlText = html
     return text
 
 
@@ -51,98 +54,188 @@ def _createShadow(factory):
         return None
 
 
-class _Number(object):
-    # A text field for a number and the text after it in the same field ("ms"); of fixed width if given, so what
-    # follows does not move when the number gets longer. No positions depend on the text width: Python reads it wrong.
-    # The text is set only when it changes.
-
-    def __init__(self, factory, filters, html, x, width):
-        self._html = html
-        self.text = _createText(factory, filters, x=x)
-        if width is not None:
-            self.text.autoSize = 'none'
-            self.text.width = width
-            self.text.height = 22
-        self._number = None
-
-    def set(self, value, extra=''):
-        number = (_fmtInt(value), extra)
-        if number != self._number:
-            self.text.htmlText = self._html % number[0] + extra
-            self._number = number
+def _createVectors(factory):
+    # Flash vectors for Graphics.drawPath: fill commands, line commands and the points; None if unavailable.
+    try:
+        vectors = (factory.getObject(_VECTOR_INT), factory.getObject(_VECTOR_INT), factory.getObject(_VECTOR_NUMBER))
+    except Exception:
+        _logger.exception('cannot create Flash vectors for drawPath')
+        return None
+    return vectors if all(vector is not None for vector in vectors) else None
 
 
-class _Line(object):
-    # Normal mode: one line, "fps 372    ping 74". The ping part is hidden while there is no ping.
-
-    def __init__(self, factory, filters):
-        self.sprite = factory.getObject('flash.display.Sprite')
-        self.pingSprite = factory.getObject('flash.display.Sprite')
-        self.fps = _Number(factory, filters, NUMBER_HTML, LINE_FPS_NUMBER_X, None)
-        self.ping = _Number(factory, filters, NUMBER_HTML, LINE_PING_NUMBER_X, None)
-        for child in (_createText(factory, filters, FPS_LABEL_HTML), self.fps.text, self.pingSprite):
-            self.sprite.addChild(child)
-        for child in (_createText(factory, filters, PING_LABEL_HTML, LINE_PING_X), self.ping.text):
-            self.pingSprite.addChild(child)
+def _zoneColour(value):
+    colour = PING_ZONES[0][1]
+    for start, zoneColour in PING_ZONES:
+        if value >= start:
+            colour = zoneColour
+    return colour
 
 
-class _Part(object):
-    # Extended mode: the fps or ping part of the line, with the label, the graph and the number.
+class _TextWidths(object):
+    # Widths of the pieces of a value text: each digit of NUMBER_HTML, each helper text of UNIT_HTML with its gap,
+    # and SEPARATOR_HTML. Measured once, each on a new text field that is not shown: a text field keeps the
+    # textWidth of its first text when the text changes. TEXT_WIDTHS if that fails.
 
-    def __init__(self, factory, filters, columns, labelHtml, numberHtml, numberWidth, look):
-        # columns: (graph x, number x).
-        self._look = look
-        self.sprite = factory.getObject('flash.display.Sprite')
-        self.number = _Number(factory, filters, numberHtml, columns[1], numberWidth)
-        self._graph = factory.getObject('flash.display.Shape')
-        self._graph.x, self._graph.y = columns[0], GRAPH_Y
-        for child in (_createText(factory, filters, labelHtml), self._graph, self.number.text):
-            self.sprite.addChild(child)
-        # Flash vectors for Graphics.drawPath: fill commands, line commands and the points both use;
-        # None if unavailable. The commands depend only on the number of points.
-        self._paths = self._createPaths(factory)
+    def __init__(self, factory):
+        digit, units = TEXT_WIDTHS
+        self._digits = dict.fromkeys(_DIGITS, digit)
+        self._units = dict(units)
+        try:
+            digits = dict((char, self._measure(factory, NUMBER_HTML % (char * 10)) / 10.0) for char in _DIGITS)
+            units = dict((unit, self._measure(factory, SEPARATOR_HTML if unit == u'/' else UNIT_HTML % unit))
+                         for unit in self._units)
+        except Exception:
+            _logger.exception('cannot measure the text, using the default widths')
+            return
+        # All units of the same width means the measuring did not work.
+        if (all(3.0 <= width <= 20.0 for width in digits.values()) and all(width > 0.0 for width in units.values())
+                and len(set(units.values())) > 1):
+            self._digits, self._units = digits, units
+            _logger.info('text widths: digits %s, %s', ' '.join('%.1f' % digits[char] for char in _DIGITS),
+                         ', '.join('%s %.1f' % (unit, width) for unit, width in sorted(units.items())))
+        else:
+            _logger.warning('text widths look wrong (digits %s, %s), using the defaults', digits, units)
+
+    @staticmethod
+    def _measure(factory, html):
+        text = factory.getObject('flash.text.TextField')
+        text.autoSize = 'left'
+        text.htmlText = html
+        return float(text.textWidth)
+
+    def number(self, number):
+        return sum(self._digits.get(char, self._digits[u'0']) for char in number)
+
+    def unit(self, unit):
+        return self._units[unit]
+
+
+class _Value(object):
+    # A text field with one or more values, "367fps / 290 1% / 255replay": each value a number with small helper
+    # text after it, values split by a "/". Knows the width of its text from _TextWidths; the text is set only when
+    # it changes.
+
+    def __init__(self, factory, filters, widths):
+        self.text = _createText(factory, filters)
+        self._widths = widths
+        self._values = None
+        self.width = 0.0
+        self._x = None
+
+    def set(self, values):
+        # values: (number or None, helper text) pairs.
+        values = tuple((_fmtInt(number), unit) for number, unit in values)
+        if values == self._values:
+            return
+        self._values = values
+        self.text.htmlText = SEPARATOR_HTML.join(NUMBER_HTML % number + UNIT_HTML % unit for number, unit in values)
+        widths = self._widths
+        self.width = (sum(widths.number(number) + widths.unit(unit) for number, unit in values) +
+                      widths.unit(u'/') * (len(values) - 1))
+
+    def place(self, x):
+        # x of the text itself; the field starts a gutter before it.
+        if x != self._x:
+            self.text.x = x - _GUTTER
+            self._x = x
+
+
+class _Graph(object):
+    # A line graph of the last GRAPH_POINTS values, newest at the right edge: fill under the line, a light dark
+    # outline, the line, a dot on the newest point. One colour, or with zones each height gets the colour of its
+    # value (a vertical gradient with hard steps); without gradients the whole graph takes the colour of the newest
+    # value.
+
+    def __init__(self, factory, colour=None, zones=False):
+        self.shape = factory.getObject('flash.display.Shape')
+        self.shape.y = GRAPH_Y
+        self._colour = colour
+        self._zones = zones
+        self._paths = _createVectors(factory)
         self._pathPoints = 0
+        self._matrix = None
+        if zones:
+            try:
+                self._matrix = factory.getObject('flash.geom.Matrix')
+                # Gradient ratio 0 at the top of the graph, 255 at the bottom.
+                self._matrix.createGradientBox(GRAPH_SIZE[0], GRAPH_SIZE[1], math.pi / 2, 0, 0)
+            except Exception:
+                _logger.exception('cannot create the gradient matrix, the ping graph is one colour')
+                self._matrix = None
 
     @property
     def drawPath(self):
         return self._paths is not None
 
-    def drawGraph(self, points):
-        graphics = self._graph.graphics
+    def draw(self, points):
+        graphics = self.shape.graphics
         width, height = GRAPH_SIZE
         graphics.clear()
         scale = max(points) * GRAPH_HEADROOM if len(points) >= 2 else 0.0
         if scale <= 0.0:
             return
-        # Newest point at the right edge, one step per point.
         step = float(width) / (GRAPH_POINTS - 1)
         left = width - step * (len(points) - 1)
         coords = [(left + i * step, height * (1.0 - value / scale)) for i, value in enumerate(points)]
+        colour = _zoneColour(points[-1]) if self._zones else self._colour
+        gradient = self._gradient(scale) if self._matrix is not None else None
+        try:
+            self._draw(graphics, coords, height, colour, gradient)
+        except Exception:
+            if gradient is None:
+                raise
+            _logger.exception('gradient drawing failed, the ping graph is one colour')
+            self._matrix = None
+            graphics.clear()
+            self._draw(graphics, coords, height, colour, None)
+
+    def _gradient(self, scale):
+        # Colours and ratios of the zones from the top (scale) to the bottom (0): two stops with the same ratio at
+        # each zone start below the top, so the colour changes in a hard step.
+        colours, ratios = [_zoneColour(scale)], [0]
+        for index in range(len(PING_ZONES) - 1, 0, -1):
+            start = PING_ZONES[index][0]
+            if start < scale:
+                ratio = int(round(255 * (1.0 - start / scale)))
+                colours += [PING_ZONES[index][1], PING_ZONES[index - 1][1]]
+                ratios += [ratio, ratio]
+        colours.append(PING_ZONES[0][1])
+        ratios.append(255)
+        return colours, ratios
+
+    def _draw(self, graphics, coords, height, colour, gradient):
         if self._paths is not None:
             try:
-                self._drawPaths(graphics, coords, height)
+                self._drawPaths(graphics, coords, height, colour, gradient)
                 return
             except Exception:
                 _logger.exception('drawPath failed, drawing with lineTo')
                 self._paths = None
                 graphics.clear()
-        self._drawLines(graphics, coords, height)
+        self._drawLines(graphics, coords, height, colour, gradient)
 
-    @staticmethod
-    def _createPaths(factory):
-        try:
-            paths = (factory.getObject(_VECTOR_INT), factory.getObject(_VECTOR_INT), factory.getObject(_VECTOR_NUMBER))
-        except Exception:
-            _logger.exception('cannot create Flash vectors for drawPath')
-            return None
-        return paths if all(vector is not None for vector in paths) else None
+    def _beginFill(self, graphics, colour, gradient):
+        if gradient is None:
+            graphics.beginFill(colour, GRAPH_FILL_ALPHA)
+        else:
+            colours, ratios = gradient
+            graphics.beginGradientFill('linear', colours, [GRAPH_FILL_ALPHA] * len(colours), ratios, self._matrix)
 
-    def _drawPaths(self, graphics, coords, height):
+    def _lineStyle(self, graphics, outline, colour, gradient):
+        # The line is drawn twice: first wider as its dark outline, then itself.
+        if outline:
+            graphics.lineStyle(*GRAPH_OUTLINE)
+            return
+        graphics.lineStyle(GRAPH_LINE, colour, 1.0)
+        if gradient is not None:
+            colours, ratios = gradient
+            graphics.lineGradientStyle('linear', colours, [1.0] * len(colours), ratios, self._matrix)
+
+    def _drawPaths(self, graphics, coords, height, colour, gradient):
         # Whole graph in a few calls: Graphics.drawPath takes all points at once (command 1 = moveTo, 2 = lineTo).
         # Fill and line share the points: bottom-left, the graph points, bottom-right. The line skips the bottom
-        # corners with moveTo, so the fill edges are not outlined. The line's dark outline is the line drawn wider
-        # first.
-        line, fill, _ = self._look
+        # corners with moveTo, so the fill edges are not outlined.
         fillCommands, lineCommands, data = self._paths
         count = len(coords)
         if count != self._pathPoints:
@@ -150,58 +243,131 @@ class _Part(object):
             _refill(lineCommands, [1, 1] + [2] * (count - 1) + [1])
             self._pathPoints = count
         _refill(data, [coords[0][0], height] + [value for point in coords for value in point] + [coords[-1][0], height])
-        graphics.beginFill(*fill)
+        self._beginFill(graphics, colour, gradient)
         graphics.drawPath(fillCommands, data)
         graphics.endFill()
-        for style in (GRAPH_OUTLINE, line):
-            graphics.lineStyle(*style)
+        for outline in (True, False):
+            self._lineStyle(graphics, outline, colour, gradient)
             graphics.drawPath(lineCommands, data)
-        self._drawDot(graphics, coords[-1])
+        self._drawDot(graphics, coords[-1], colour)
 
-    def _drawLines(self, graphics, coords, height):
+    def _drawLines(self, graphics, coords, height, colour, gradient):
         # Fallback: one Flash call per point.
-        line, fill, _ = self._look
-        graphics.beginFill(*fill)
+        self._beginFill(graphics, colour, gradient)
         graphics.moveTo(coords[0][0], height)
         for x, y in coords:
             graphics.lineTo(x, y)
         graphics.lineTo(coords[-1][0], height)
         graphics.endFill()
-        for style in (GRAPH_OUTLINE, line):
-            graphics.lineStyle(*style)
+        for outline in (True, False):
+            self._lineStyle(graphics, outline, colour, gradient)
             graphics.moveTo(*coords[0])
             for x, y in coords[1:]:
                 graphics.lineTo(x, y)
-        self._drawDot(graphics, coords[-1])
+        self._drawDot(graphics, coords[-1], colour)
 
-    def _drawDot(self, graphics, point):
-        colour, alpha, radius = self._look[2]
+    @staticmethod
+    def _drawDot(graphics, point, colour):
         graphics.lineStyle()
-        graphics.beginFill(colour, alpha)
-        graphics.drawCircle(point[0], point[1], radius)
+        graphics.beginFill(colour, 1.0)
+        graphics.drawCircle(point[0], point[1], GRAPH_DOT)
         graphics.endFill()
 
 
+class _LagTicks(object):
+    # One tick per graph point, newest at the right edge: short and green without lag in that second, full height
+    # and red with lag. Each tick has a dark outline under it.
+
+    def __init__(self, factory):
+        self.shape = factory.getObject('flash.display.Shape')
+        self.shape.y = GRAPH_Y
+        self._paths = _createVectors(factory)
+
+    def draw(self, points):
+        graphics = self.shape.graphics
+        graphics.clear()
+        if not points:
+            return
+        width, height = GRAPH_SIZE
+        step = float(width) / GRAPH_POINTS
+        outlineWidth, outlineColour, outlineAlpha = TICK_OUTLINE
+        outlines, ticks = [], ([], [])
+        for index, lag in enumerate(points):
+            x = width - step * (len(points) - index)
+            tickHeight = height if lag else TICK_HEIGHT
+            outlines.append((x, height - tickHeight - 0.5, outlineWidth, tickHeight + 0.5))
+            ticks[1 if lag else 0].append((x + (outlineWidth - TICK_WIDTH) / 2.0, height - tickHeight, TICK_WIDTH,
+                                           tickHeight))
+        for rects, colour, alpha in ((outlines, outlineColour, outlineAlpha), (ticks[0], LAG_COLOURS[0], 1.0),
+                                     (ticks[1], LAG_COLOURS[1], 1.0)):
+            if rects:
+                self._fillRects(graphics, rects, colour, alpha)
+
+    def _fillRects(self, graphics, rects, colour, alpha):
+        graphics.beginFill(colour, alpha)
+        if self._paths is not None:
+            try:
+                # Each rectangle: moveTo and four lineTo.
+                commands, _, data = self._paths
+                _refill(commands, [1, 2, 2, 2, 2] * len(rects))
+                _refill(data, [value for x, y, w, h in rects
+                               for value in (x, y, x + w, y, x + w, y + h, x, y + h, x, y)])
+                graphics.drawPath(commands, data)
+                graphics.endFill()
+                return
+            except Exception:
+                _logger.exception('drawPath failed for the lag ticks, drawing with drawRect')
+                self._paths = None
+        for rect in rects:
+            graphics.drawRect(*rect)
+        graphics.endFill()
+
+
+class _Lamp(object):
+    # The lag lamp, a circle with a dark outline, green or red. Redrawn only when the state changes.
+
+    def __init__(self, factory):
+        self.shape = factory.getObject('flash.display.Shape')
+        self.shape.y = GRAPH_Y + GRAPH_SIZE[1] / 2.0
+        self._lag = None
+        self._x = None
+
+    def set(self, lag):
+        if lag == self._lag:
+            return
+        self._lag = lag
+        graphics = self.shape.graphics
+        graphics.clear()
+        graphics.lineStyle(*LAMP_OUTLINE)
+        graphics.beginFill(LAG_COLOURS[1 if lag else 0], 1.0)
+        graphics.drawCircle(0, 0, LAMP_RADIUS)
+        graphics.endFill()
+
+    def place(self, x):
+        # x of the lamp's left edge.
+        if x != self._x:
+            self.shape.x = x + LAMP_RADIUS
+            self._x = x
+
+
 class FlashView(object):
-    # Flash objects on the battle page, next to the game's own FPS/ping panel. Normal mode: one line, fps and ping.
-    # Extended mode (while Alt is held): also one line, fps and ping each with its graph before the number,
-    # and 1% low after the fps number; "desync N" at the end. Each part is hidden while its value is
-    # missing.
+    # Flash objects on the battle page, next to the game's own FPS/ping panel, in one line.
+    # Normal mode: "372fps    74ms ●". Extended mode (while Alt is held): each part with its graph before it, 1% low
+    # after the fps, the lag ticks before the lamp, "desync N" at the end: "<graph> 372fps / 261 1%    <graph> 74ms
+    # <ticks> ●". In a replay the fps part also shows the FPS recorded in the replay: "367fps / 255replay".
+    # The ping part and the lamp are hidden while there is no ping, everything while there is no FPS.
     # Python cannot construct Flash objects itself; the game's class factory (App.utils.classFactory) does it.
 
     def __init__(self):
         self._container = None
-        self._line = None
-        self._fpsPart = None
-        self._pingPart = None
         self._extended = False
         self._fps = None
+        self._low = None
+        self._replayFps = None
         self._ping = None
-        # Shown after the ping in extended mode.
-        self._desync = ''
-        # Shown after the fps number in extended mode: "    1% low 261".
-        self._low = ''
-        # Visibility of (line, its ping part, extended fps part, extended ping part) as last set.
+        self._lag = False
+        self._desyncs = 0
+        # Visibility of each child as last set.
         self._visible = None
 
     @property
@@ -230,25 +396,33 @@ class FlashView(object):
             except Exception:
                 _logger.exception('cannot read the text filters of the game panel')
                 filters = None
-        line = _Line(factory, filters)
-        fpsPart = _Part(factory, filters, ALT_FPS, FPS_LABEL_HTML, NUMBER_HTML, None, GRAPH_LOOK)
-        pingPart = _Part(factory, filters, ALT_PING, PING_LABEL_HTML, NUMBER_HTML + MS_HTML, None,
-                         GRAPH_LOOK)
-        pingPart.sprite.x = ALT_PING_X
-        for child in (line.sprite, fpsPart.sprite, pingPart.sprite):
+        widths = _TextWidths(factory)
+        self._fpsGraph = _Graph(factory, colour=FPS_GRAPH_COLOUR)
+        self._fpsText = _Value(factory, filters, widths)
+        self._pingGraph = _Graph(factory, zones=True)
+        self._pingText = _Value(factory, filters, widths)
+        self._lagTicks = _LagTicks(factory)
+        self._lamp = _Lamp(factory)
+        self._desyncText = _createText(factory, filters)
+        self._desyncHtml = None
+        # x of the children placed by _place, as last set.
+        self._x = {}
+        self._children = (self._fpsGraph.shape, self._fpsText.text, self._pingGraph.shape, self._pingText.text,
+                          self._lagTicks.shape, self._lamp.shape, self._desyncText)
+        for child in self._children:
             child.visible = False
             container.addChild(child)
         flashObject.parent.addChild(container)
-        self._container, self._line, self._fpsPart, self._pingPart = container, line, fpsPart, pingPart
-        self._visible = (False, True, False, False)
+        self._container = container
+        self._visible = (False,) * len(self._children)
         _logger.info('view created, drawPath vectors %s',
-                     'ready' if fpsPart.drawPath and pingPart.drawPath else 'unavailable')
+                     'ready' if self._fpsGraph.drawPath and self._pingGraph.drawPath else 'unavailable')
 
     def detach(self):
         container = self._container
         if container is None:
             return
-        self._container = self._line = self._fpsPart = self._pingPart = self._visible = None
+        self._container = self._visible = None
         self._extended = False
         try:
             parent = container.parent
@@ -261,40 +435,72 @@ class FlashView(object):
         self._extended = extended
         self._show()
 
-    def update(self, fps, low, ping, desyncs):
-        self._fps, self._ping = fps, ping
-        self._low = LOW_HTML % _fmtInt(low)
-        self._desync = DESYNC_HTML % desyncs if desyncs else ''
+    def update(self, fps, low, ping, lag, desyncs, replayFps=None):
+        self._fps, self._low, self._ping, self._lag = fps, low, ping, lag
+        self._desyncs, self._replayFps = desyncs, replayFps
         self._show()
 
     def hide(self):
-        self.update(None, None, None, 0)
+        self.update(None, None, None, False, 0)
 
-    def updateGraphs(self, fpsPoints, pingPoints):
+    def updateGraphs(self, fpsPoints, pingPoints, lagPoints):
         if self._container is None or not self._extended:
             return
-        self._fpsPart.drawGraph(fpsPoints)
-        self._pingPart.drawGraph(pingPoints)
+        self._fpsGraph.draw(fpsPoints)
+        self._pingGraph.draw(pingPoints)
+        self._lagTicks.draw(lagPoints)
 
     def _show(self):
-        # Sets the numbers of the current mode and shows only the parts with a value.
+        # Sets the texts of the current mode, lays the line out from the left and shows only the parts with a value.
         if self._container is None:
             return
-        fps, ping, extended = self._fps, self._ping, self._extended
-        if extended:
-            if fps is not None:
-                self._fpsPart.number.set(fps, self._low)
-            if ping is not None:
-                self._pingPart.number.set(ping, self._desync)
-        elif fps is not None:
-            self._line.fps.set(fps)
-            if ping is not None:
-                self._line.ping.set(ping)
-        visible = (not extended and fps is not None, ping is not None,
-                   extended and fps is not None, extended and ping is not None)
+        extended, hasFps, hasPing = self._extended, self._fps is not None, self._ping is not None
+        x = 0.0
+        if hasFps:
+            values = [(self._fps, u'fps')]
+            if extended and self._low is not None:
+                values.append((self._low, u'1%'))
+            if self._replayFps is not None:
+                values.append((self._replayFps, u'replay'))
+            self._fpsText.set(values)
+            if extended:
+                x += GRAPH_SIZE[0] + GAP_GRAPH
+            self._fpsText.place(x)
+            x += self._fpsText.width + GAP_PART
+        if hasFps and hasPing:
+            if extended:
+                self._place(self._pingGraph.shape, x)
+                x += GRAPH_SIZE[0] + GAP_GRAPH
+            self._pingText.set([(self._ping, u'ms')])
+            self._pingText.place(x)
+            x += self._pingText.width
+            if extended:
+                x += GAP_TICKS
+                self._place(self._lagTicks.shape, x)
+                x += GRAPH_SIZE[0] + GAP_TICKS_LAMP
+            else:
+                x += GAP_LAMP
+            self._lamp.set(self._lag)
+            self._lamp.place(x)
+            x += LAMP_RADIUS * 2 + GAP_PART
+        hasDesync = extended and hasFps and self._desyncs > 0
+        if hasDesync:
+            html = DESYNC_HTML % self._desyncs
+            if html != self._desyncHtml:
+                self._desyncText.htmlText = html
+                self._desyncHtml = html
+            self._place(self._desyncText, x - _GUTTER)
+        withPing = hasFps and hasPing
+        visible = (extended and hasFps, hasFps, extended and withPing, withPing, extended and withPing, withPing,
+                   hasDesync)
         if visible != self._visible:
-            for sprite, shown, wasShown in zip((self._line.sprite, self._line.pingSprite, self._fpsPart.sprite,
-                                                self._pingPart.sprite), visible, self._visible):
+            for child, shown, wasShown in zip(self._children, visible, self._visible):
                 if shown != wasShown:
-                    sprite.visible = shown
+                    child.visible = shown
             self._visible = visible
+
+    def _place(self, child, x):
+        # Sets child.x only when it changes.
+        if self._x.get(id(child)) != x:
+            child.x = x
+            self._x[id(child)] = x
