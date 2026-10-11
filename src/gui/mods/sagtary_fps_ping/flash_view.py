@@ -3,7 +3,7 @@
 import logging
 import math
 
-from gui.mods.sagtary_fps_ping.config import (DESYNC_HTML, FPS_GRAPH_COLOUR, GAP_GRAPH, GAP_LAMP, GAP_PART, GAP_TICKS,
+from gui.mods.sagtary_fps_ping.config import (FPS_GRAPH_COLOUR, GAP_GRAPH, GAP_LAMP, GAP_PART, GAP_TICKS,
                                          GAP_TICKS_LAMP, GRAPH_DOT, GRAPH_FILL_ALPHA, GRAPH_HEADROOM, GRAPH_LINE,
                                          GRAPH_OUTLINE, GRAPH_POINTS, GRAPH_SIZE, GRAPH_Y, LAG_COLOURS, LAMP_OUTLINE,
                                          LAMP_RADIUS, NUMBER_HTML, PING_ZONES, SEPARATOR_HTML, TEXT_SHADOW,
@@ -353,8 +353,7 @@ class _Lamp(object):
 class FlashView(object):
     # Flash objects on the battle page, next to the game's own FPS/ping panel, in one line.
     # Normal mode: "372fps    74ms ●". Extended mode (while Alt is held): each part with its graph before it, 1% low
-    # after the fps, the lag ticks before the lamp, "desync N" at the end: "<graph> 372fps / 261 1%    <graph> 74ms
-    # <ticks> ●". In a replay the fps part also shows the FPS recorded in the replay: "367fps / 255replay".
+    # after the fps, the lag ticks before the lamp: "<graph> 372fps / 261 1%    <graph> 74ms <ticks> ●". In a replay the fps part also shows the FPS recorded in the replay: "367fps / 255replay".
     # The ping part and the lamp are hidden while there is no ping, everything while there is no FPS.
     # Python cannot construct Flash objects itself; the game's class factory (App.utils.classFactory) does it.
 
@@ -366,7 +365,6 @@ class FlashView(object):
         self._replayFps = None
         self._ping = None
         self._lag = False
-        self._desyncs = 0
         # Visibility of each child as last set.
         self._visible = None
 
@@ -403,12 +401,10 @@ class FlashView(object):
         self._pingText = _Value(factory, filters, widths)
         self._lagTicks = _LagTicks(factory)
         self._lamp = _Lamp(factory)
-        self._desyncText = _createText(factory, filters)
-        self._desyncHtml = None
         # x of the children placed by _place, as last set.
         self._x = {}
         self._children = (self._fpsGraph.shape, self._fpsText.text, self._pingGraph.shape, self._pingText.text,
-                          self._lagTicks.shape, self._lamp.shape, self._desyncText)
+                          self._lagTicks.shape, self._lamp.shape)
         for child in self._children:
             child.visible = False
             container.addChild(child)
@@ -435,13 +431,12 @@ class FlashView(object):
         self._extended = extended
         self._show()
 
-    def update(self, fps, low, ping, lag, desyncs, replayFps=None):
-        self._fps, self._low, self._ping, self._lag = fps, low, ping, lag
-        self._desyncs, self._replayFps = desyncs, replayFps
+    def update(self, fps, low, ping, lag, replayFps=None):
+        self._fps, self._low, self._ping, self._lag, self._replayFps = fps, low, ping, lag, replayFps
         self._show()
 
     def hide(self):
-        self.update(None, None, None, False, 0)
+        self.update(None, None, None, False)
 
     def updateGraphs(self, fpsPoints, pingPoints, lagPoints):
         if self._container is None or not self._extended:
@@ -482,17 +477,8 @@ class FlashView(object):
                 x += GAP_LAMP
             self._lamp.set(self._lag)
             self._lamp.place(x)
-            x += LAMP_RADIUS * 2 + GAP_PART
-        hasDesync = extended and hasFps and self._desyncs > 0
-        if hasDesync:
-            html = DESYNC_HTML % self._desyncs
-            if html != self._desyncHtml:
-                self._desyncText.htmlText = html
-                self._desyncHtml = html
-            self._place(self._desyncText, x - _GUTTER)
         withPing = hasFps and hasPing
-        visible = (extended and hasFps, hasFps, extended and withPing, withPing, extended and withPing, withPing,
-                   hasDesync)
+        visible = (extended and hasFps, hasFps, extended and withPing, withPing, extended and withPing, withPing)
         if visible != self._visible:
             for child, shown, wasShown in zip(self._children, visible, self._visible):
                 if shown != wasShown:

@@ -64,9 +64,6 @@ SEPARATOR_HTML = (u'<font face="$FieldFont" size="10"> </font>'
 # Text widths: Python cannot read the width of a shown text field reliably, so the width of each digit, helper text
 # and separator is measured once when the view is created, and these are used if that fails: digit, then the texts.
 TEXT_WIDTHS = (8.0, {u'fps': 18.0, u'1%': 17.0, u'replay': 36.0, u'ms': 17.0, u'/': 14.0})
-# Shown at the end of the extended line once the frame callback has been out of step with the game's frames at
-# least once this battle.
-DESYNC_HTML = u'<font face="$FieldFont" size="15" color="#FF5A4F">desync %d</font>'
 # Text shadow, a DropShadowFilter like the game's own panel text has (read from the game in 2.4), but a little
 # darker: strength 0.8 instead of 0.6. Distance, angle, colour, alpha, blur, strength, quality.
 TEXT_SHADOW = (1.0, 90.0, 0x000000, 1.0, 4.0, 0.8, 2)

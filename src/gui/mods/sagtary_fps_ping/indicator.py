@@ -105,12 +105,11 @@ class Indicator(object):
                     self._pingPoints.append(ping)
                     self._lagPoints.append(self._lagSincePoint)
                 self._lagSincePoint = False
-            self._runView(self._view.update, fps, low, ping, lag, self._frameTimer.desyncs, replayFps)
+            self._runView(self._view.update, fps, low, ping, lag, replayFps)
             if self._view.extended and newPoint:
                 self._scheduleGraphs()
             if self._updates % LOG_EVERY == 0:
-                _logger.info('fps %s | 1%% low %s | desyncs %d | ping %s',
-                             _fmt(fps), _fmt(low), self._frameTimer.desyncs, _fmt(ping))
+                _logger.info('fps %s | 1%% low %s | ping %s', _fmt(fps), _fmt(low), _fmt(ping))
             self._updates += 1
         except Exception:
             _logger.exception('update failed, indicator stopped')
