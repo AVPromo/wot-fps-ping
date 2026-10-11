@@ -2,7 +2,7 @@
 
 A World of Tanks mod that shows FPS, ping and lag in battle and in replays, in place of the game's own FPS/ping panel.
 
-![The indicator in battle and in replays, normal and with Alt held](docs/hud.png)
+![The indicator in battle and in replays, normal and with Alt held](docs/cover.png)
 
 ## What it shows
 
