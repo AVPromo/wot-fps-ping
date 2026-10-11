@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""FPS & Ping by Sagtary: battle FPS and ping indicator for World of Tanks.
+"""FPS, Ping and Lag by Sagtary: battle FPS, ping and lag indicator for World of Tanks.
 
 Entry point loaded by the game; the code is in the gui.mods.sagtary_fps_ping package.
 """

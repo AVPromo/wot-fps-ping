@@ -16,8 +16,8 @@ import zipfile
 from xml.sax.saxutils import escape
 
 MOD_ID = 'sagtary.fps_ping'
-MOD_NAME = 'FPS & Ping by Sagtary'
-MOD_DESCRIPTION = 'Battle FPS and ping indicator.'
+MOD_NAME = 'FPS, Ping and Lag by Sagtary'
+MOD_DESCRIPTION = 'Battle FPS, ping and lag indicator.'
 MOD_SCRIPT = 'mod_sagtary_fps_ping'
 
 GAME_DIR = os.environ.get('WOT_DIR', r'D:\programs\World_of_Tanks_EU')
