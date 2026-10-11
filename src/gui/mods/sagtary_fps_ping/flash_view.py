@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """The texts, the graphs and the lag lamp, drawn with Flash (Scaleform) objects of the battle page."""
 import logging
-import math
 
 from gui.mods.sagtary_fps_ping.config import (FPS_GRAPH_COLOUR, GAP_GRAPH, GAP_LAMP, GAP_PART, GAP_TICKS,
                                          GAP_TICKS_LAMP, GRAPH_DOT, GRAPH_FILL_ALPHA, GRAPH_HEADROOM, GRAPH_LINE,
@@ -143,9 +142,9 @@ class _Value(object):
 
 class _Graph(object):
     # A line graph of the last GRAPH_POINTS values, newest at the right edge: fill under the line, a light dark
-    # outline, the line, a dot on the newest point. One colour, or with zones each height gets the colour of its
-    # value (a vertical gradient with hard steps); without gradients the whole graph takes the colour of the newest
-    # value.
+    # outline, the line, a dot on the newest point. One colour, or with zones each segment between two points, with
+    # the fill under it, gets the zone colour of its higher end, so a spike is coloured down to the bottom. Segments
+    # of one colour in a row are drawn as one run; all runs of one colour in one Graphics.drawPath call.
 
     def __init__(self, factory, colour=None, zones=False):
         self.shape = factory.getObject('flash.display.Shape')
@@ -153,16 +152,6 @@ class _Graph(object):
         self._colour = colour
         self._zones = zones
         self._paths = _createVectors(factory)
-        self._pathPoints = 0
-        self._matrix = None
-        if zones:
-            try:
-                self._matrix = factory.getObject('flash.geom.Matrix')
-                # Gradient ratio 0 at the top of the graph, 255 at the bottom.
-                self._matrix.createGradientBox(GRAPH_SIZE[0], GRAPH_SIZE[1], math.pi / 2, 0, 0)
-            except Exception:
-                _logger.exception('cannot create the gradient matrix, the ping graph is one colour')
-                self._matrix = None
 
     @property
     def drawPath(self):
@@ -178,100 +167,63 @@ class _Graph(object):
         step = float(width) / (GRAPH_POINTS - 1)
         left = width - step * (len(points) - 1)
         coords = [(left + i * step, height * (1.0 - value / scale)) for i, value in enumerate(points)]
-        colour = _zoneColour(points[-1]) if self._zones else self._colour
-        gradient = self._gradient(scale) if self._matrix is not None else None
-        try:
-            self._draw(graphics, coords, height, colour, gradient)
-        except Exception:
-            if gradient is None:
-                raise
-            _logger.exception('gradient drawing failed, the ping graph is one colour')
-            self._matrix = None
-            graphics.clear()
-            self._draw(graphics, coords, height, colour, None)
-
-    def _gradient(self, scale):
-        # Colours and ratios of the zones from the top (scale) to the bottom (0): two stops with the same ratio at
-        # each zone start below the top, so the colour changes in a hard step.
-        colours, ratios = [_zoneColour(scale)], [0]
-        for index in range(len(PING_ZONES) - 1, 0, -1):
-            start = PING_ZONES[index][0]
-            if start < scale:
-                ratio = int(round(255 * (1.0 - start / scale)))
-                colours += [PING_ZONES[index][1], PING_ZONES[index - 1][1]]
-                ratios += [ratio, ratio]
-        colours.append(PING_ZONES[0][1])
-        ratios.append(255)
-        return colours, ratios
-
-    def _draw(self, graphics, coords, height, colour, gradient):
+        # {colour: [(first point, last point) of each run]}
+        runs = {}
+        if self._zones:
+            colours = [_zoneColour(max(points[i], points[i + 1])) for i in range(len(points) - 1)]
+            start = 0
+            for index in range(1, len(colours) + 1):
+                if index == len(colours) or colours[index] != colours[start]:
+                    runs.setdefault(colours[start], []).append((start, index))
+                    start = index
+            dot = _zoneColour(points[-1])
+        else:
+            runs[self._colour] = [(0, len(coords) - 1)]
+            dot = self._colour
+        # Each run as a polyline of its points, and as a polygon closed along the bottom for the fill.
+        lines = dict((colour, [coords[first:last + 1] for first, last in spans]) for colour, spans in runs.items())
+        fills = dict((colour, [[(coords[first][0], height)] + coords[first:last + 1] + [(coords[last][0], height)]
+                               for first, last in spans]) for colour, spans in runs.items())
         if self._paths is not None:
             try:
-                self._drawPaths(graphics, coords, height, colour, gradient)
+                self._drawAll(graphics, coords, fills, lines, dot, self._drawShapesPath)
                 return
             except Exception:
                 _logger.exception('drawPath failed, drawing with lineTo')
                 self._paths = None
                 graphics.clear()
-        self._drawLines(graphics, coords, height, colour, gradient)
+        self._drawAll(graphics, coords, fills, lines, dot, self._drawShapesLines)
 
-    def _beginFill(self, graphics, colour, gradient):
-        if gradient is None:
+    def _drawAll(self, graphics, coords, fills, lines, dot, drawShapes):
+        for colour, shapes in fills.items():
             graphics.beginFill(colour, GRAPH_FILL_ALPHA)
-        else:
-            colours, ratios = gradient
-            graphics.beginGradientFill('linear', colours, [GRAPH_FILL_ALPHA] * len(colours), ratios, self._matrix)
-
-    def _lineStyle(self, graphics, outline, colour, gradient):
-        # The line is drawn twice: first wider as its dark outline, then itself.
-        if outline:
-            graphics.lineStyle(*GRAPH_OUTLINE)
-            return
-        graphics.lineStyle(GRAPH_LINE, colour, 1.0)
-        if gradient is not None:
-            colours, ratios = gradient
-            graphics.lineGradientStyle('linear', colours, [1.0] * len(colours), ratios, self._matrix)
-
-    def _drawPaths(self, graphics, coords, height, colour, gradient):
-        # Whole graph in a few calls: Graphics.drawPath takes all points at once (command 1 = moveTo, 2 = lineTo).
-        # Fill and line share the points: bottom-left, the graph points, bottom-right. The line skips the bottom
-        # corners with moveTo, so the fill edges are not outlined.
-        fillCommands, lineCommands, data = self._paths
-        count = len(coords)
-        if count != self._pathPoints:
-            _refill(fillCommands, [1] + [2] * (count + 1))
-            _refill(lineCommands, [1, 1] + [2] * (count - 1) + [1])
-            self._pathPoints = count
-        _refill(data, [coords[0][0], height] + [value for point in coords for value in point] + [coords[-1][0], height])
-        self._beginFill(graphics, colour, gradient)
-        graphics.drawPath(fillCommands, data)
+            drawShapes(graphics, shapes)
+            graphics.endFill()
+        # The line's dark outline: the whole line drawn wider under the coloured runs.
+        graphics.lineStyle(*GRAPH_OUTLINE)
+        drawShapes(graphics, [coords])
+        for colour, shapes in lines.items():
+            graphics.lineStyle(GRAPH_LINE, colour, 1.0)
+            drawShapes(graphics, shapes)
+        graphics.lineStyle()
+        graphics.beginFill(dot, 1.0)
+        graphics.drawCircle(coords[-1][0], coords[-1][1], GRAPH_DOT)
         graphics.endFill()
-        for outline in (True, False):
-            self._lineStyle(graphics, outline, colour, gradient)
-            graphics.drawPath(lineCommands, data)
-        self._drawDot(graphics, coords[-1], colour)
 
-    def _drawLines(self, graphics, coords, height, colour, gradient):
-        # Fallback: one Flash call per point.
-        self._beginFill(graphics, colour, gradient)
-        graphics.moveTo(coords[0][0], height)
-        for x, y in coords:
-            graphics.lineTo(x, y)
-        graphics.lineTo(coords[-1][0], height)
-        graphics.endFill()
-        for outline in (True, False):
-            self._lineStyle(graphics, outline, colour, gradient)
-            graphics.moveTo(*coords[0])
-            for x, y in coords[1:]:
-                graphics.lineTo(x, y)
-        self._drawDot(graphics, coords[-1], colour)
+    def _drawShapesPath(self, graphics, shapes):
+        # All shapes in one call: Graphics.drawPath takes all points at once (command 1 = moveTo, 2 = lineTo).
+        commands, _, data = self._paths
+        _refill(commands, [command for shape in shapes for command in [1] + [2] * (len(shape) - 1)])
+        _refill(data, [value for shape in shapes for point in shape for value in point])
+        graphics.drawPath(commands, data)
 
     @staticmethod
-    def _drawDot(graphics, point, colour):
-        graphics.lineStyle()
-        graphics.beginFill(colour, 1.0)
-        graphics.drawCircle(point[0], point[1], GRAPH_DOT)
-        graphics.endFill()
+    def _drawShapesLines(graphics, shapes):
+        # Fallback: one Flash call per point.
+        for shape in shapes:
+            graphics.moveTo(*shape[0])
+            for x, y in shape[1:]:
+                graphics.lineTo(x, y)
 
 
 class _LagTicks(object):

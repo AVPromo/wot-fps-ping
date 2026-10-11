@@ -52,11 +52,12 @@ Ping to the server in milliseconds. Example: `44ms`.
 
 Ping history for the last 30 seconds, newest on the right. Alt only.
 
-- One point per second, coloured by value with the game's own scale for server ping in the hangar:
+- One point per second, coloured with the game's own scale for server ping in the hangar:
   - green: up to 59 ms (good);
   - yellow: 60–119 ms (normal);
   - red: 120 ms and more (high).
-- A spike to 131 ms shows green at the bottom, yellow in the middle and red at the top.
+- Each segment between two points, with the fill under it, takes the colour of its higher end: a spike to 131 ms
+  is red down to the bottom.
 - The dot at the end has the colour of the current ping.
 
 ### Lag

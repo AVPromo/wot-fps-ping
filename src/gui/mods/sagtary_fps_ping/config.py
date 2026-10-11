@@ -77,8 +77,8 @@ GRAPH_OUTLINE = (3.0, 0x000000, 0.35)
 # The FPS graph is white.
 FPS_GRAPH_COLOUR = 0xFFFFFF
 # The ping graph is coloured by value, by the scale the game itself uses for the ping of the servers in the hangar
-# (predefined_hosts.py: up to 59 ms good, up to 119 normal, then high): (from ms, colour). Each height of the graph
-# gets the colour of its value.
+# (predefined_hosts.py: up to 59 ms good, up to 119 normal, then high): (from ms, colour). Each segment of the
+# graph and the fill under it get the colour of its higher end.
 PING_ZONES = ((0, 0x3CCF4E), (60, 0xFFD23F), (120, 0xEF3B2D))
 
 # Lag: the lamp is green while the server's updates come, red while they do not (BigWorld.statLagDetected(), the
