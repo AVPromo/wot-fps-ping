@@ -34,14 +34,6 @@ and the lag history. In replays the line also shows the FPS recorded in the repl
   high ping alone does not make it red.
 - **Lag ticks** (Alt): one tick per second for the last 30 seconds. Tall and red means there was lag in that second.
 
-## Notes
-
-- The game's own FPS/ping panel is hidden; the mod takes its place.
-- Alt follows the game's key for extended info, so it changes if you rebind that key.
-- Light on performance: the text updates 5 times a second, like the game's panel; the graphs are redrawn once a
-  second and only while Alt is held.
-- No settings, no files written. `game.log` gets one line with the mod version at start, then only errors.
-
 ## FAQ
 
 **1. Why is the FPS different from the game's panel?**
@@ -58,6 +50,12 @@ the screen is out of date.
 
 Sort the last 30 seconds of frames from the slowest, take the slowest 1% of the time, and look at the FPS there.
 `379fps / 237low` means the game mostly runs at 379 FPS but drops to about 237 in short moments.
+
+## Source code & feedback
+
+Source code is on GitHub: <https://github.com/pavel-bolhovitin/wot-fps-ping>
+
+Report problems in the comments here or in GitHub issues.
 
 ## Installation
 
