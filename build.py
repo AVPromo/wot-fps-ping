@@ -21,7 +21,7 @@ MOD_DESCRIPTION = 'Battle FPS, ping and lag indicator.'
 MOD_SCRIPT = 'mod_sagtary_fps_ping'
 
 GAME_DIR = os.environ.get('WOT_DIR', r'D:\programs\World_of_Tanks_EU')
-GAME_VERSION = '2.4.0.2'
+GAME_VERSION = '2.4.1.1'
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SOURCE_DIR = os.path.join(ROOT, 'src', 'gui', 'mods')

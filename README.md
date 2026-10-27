@@ -79,9 +79,16 @@ Lag history for the last 30 seconds, newest on the right. Alt only.
 - Short and green: no lag in that second.
 - Tall and red: there was lag at least once in that second.
 
-## Install
+## Installation
 
-Copy `sagtary.fps_ping_<version>.wotmod` into the game's `mods\<game version>\` folder.
+![Copy the file into the game version folder in mods](docs/install-guide.png)
+
+Copy `sagtary.fps_ping_<version>.wotmod` into `mods/<game version>/` in the game folder, where `WorldOfTanks.exe` is.
+
+## Report a bug
+
+[Create an issue](https://github.com/pavel-bolhovitin/wot-fps-ping/issues/new). No GitHub account? Write in the
+comments on WGMods.
 
 ## Build
 

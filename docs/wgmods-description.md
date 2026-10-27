@@ -1,15 +1,28 @@
 # FPS, Ping and Lag
 
-Short description: Exact FPS, 1% low, ping and lag in one line, with 30-second graphs on Alt. Works in replays.
+Exact FPS, 1% low, ping and lag in one line, with 30-second graphs on Alt. Works in replays.
 
-## Mod description
-
-Replaces the game's FPS/ping panel in the top left corner with one line: FPS, ping and a lag lamp.
-
-Hold **Alt** (the game's extended info key) to see more: graphs of the last 30 seconds for FPS and ping, 1% low FPS
-and the lag history. In replays the line also shows the FPS recorded in the replay.
+- exact FPS, counted from every frame;
+- ping and a lag lamp;
+- on **Alt**: 30-second graphs of FPS and ping, 1% low FPS and lag history;
+- in replays: the FPS, ping and lag recorded in the replay.
 
 ![FPS, Ping and Lag in battle and in replays, normal and with Alt held](cover.png)
+
+## Installation
+
+![Installation: copy the file into the game version folder in mods](install-guide.png)
+
+1. Download `sagtary.fps_ping_<version>.wotmod`.
+2. Copy it into `mods/<game version>` in the game folder, where `WorldOfTanks.exe` is. Replace the old version if
+   asked.
+3. Check that the file is in the folder shown in the picture.
+4. Start a battle: FPS, ping and lag are in the top left corner.
+
+## Found a bug? Have an idea?
+
+> [Create an issue on GitHub](https://github.com/pavel-bolhovitin/wot-fps-ping/issues/new) or just write in the
+> comments here.
 
 ## What it shows
 
@@ -51,15 +64,9 @@ the screen is out of date.
 Sort the last 30 seconds of frames from the slowest, take the slowest 1% of the time, and look at the FPS there.
 `379fps / 237low` means the game mostly runs at 379 FPS but drops to about 237 in short moments.
 
-## Source code & feedback
+## Source code
 
 Source code is on GitHub: <https://github.com/pavel-bolhovitin/wot-fps-ping>
-
-Report problems in the comments here or in GitHub issues.
-
-## Installation
-
-Copy `sagtary.fps_ping_1.0.0.wotmod` into the `[WoT game directory]/mods/[game version]/` folder.
 
 ## Changelog
 
